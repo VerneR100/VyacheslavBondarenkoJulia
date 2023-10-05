@@ -6,8 +6,7 @@ r = Robot("untitled11.sit", animate = true)
 function counting_partitions_in_row!(robot, side)
     state = 0
     num_partitions = 0
-    while !isborder(robot, side)
-        move!(robot, side)
+    while try_move!(robot, side)
         if state == 0 && isborder(robot, Nord)
             state = 1
         elseif  state == 1 && !isborder(robot, Nord)
