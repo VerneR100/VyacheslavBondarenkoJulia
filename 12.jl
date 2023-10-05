@@ -9,8 +9,7 @@ function counting_partitions_in_row!(robot, side)
     # state = 2 самое начало перегородки или её продолжение
     state = 0
     num_partitions = 0
-    while !isborder(robot, side)
-        move!(robot, side)
+    while try_move!(robot, side)
         if state == 0 && isborder(robot, Nord)
             state = 2
         elseif  state == 1 && !isborder(robot, Nord)
