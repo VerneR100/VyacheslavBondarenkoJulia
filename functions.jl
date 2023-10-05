@@ -1,6 +1,7 @@
 using HorizonSideRobots
 import HorizonSideRobots.move!
 import HorizonSideRobots.isborder
+import HorizonSideRobots.putmarker!
 
 HSR = HorizonSideRobots
 
@@ -194,12 +195,84 @@ function find_pass!(robot, border_side)
 end
 
 """
+move_to_angle!(robot, side::NTuple{2, HorizonSide})::Array
+-- Принимает в качестве аргумента кортеж с направление угла в который должен переместиться робот
+(Nord, West), (Nord, Ost), (Sud, West), (Sud, Ost)
+функция возвращает путь пройденный роботом в форме массива кортежей,
+где первый элемент кортежа: направление в которое следует двигаться роботу чтобы вернуться на исходное положение,
+и второй элемент кортежа: количество шагов которые нужно сделать роботу в данном направлении
+"""
+function move_to_angle!(robot, side::NTuple{2, HorizonSide})::Array
+    path = Tuple{HorizonSide, Int}[]
+    current_side = side[1] # Действующее направление
+    while !isborder(robot, side[1]) || !isborder(robot, side[2])
+        pushfirst!(path, (inverse(current_side), numsteps_along!(robot, current_side)))
+        if current_side == side[1]
+            current_side = side[2]
+        else
+            current_side = side[1]
+        end
+    end
+    return path
+end
+
+"""
 move_to_back!(robot, path)
 -- возвращает робота в исходное положение испльзуя path как инструкцию
---
 """
 function move_to_back!(robot, path)
     for step in path
         along!(robot, step[1], step[2])
     end
 end
+
+
+###  Специальные функции для 10 задания
+"""
+num_steps_mark_along!(robot, direction, num_steps)
+-- строит полосу из маркеров длиною в num_steps шагов в заданном направлении
+"""
+function num_steps_mark_along!(robot, direction, num_steps) # Специальная функция для putmarker!(robot, N)
+    putmarker!(robot)
+    for _ in 1:(num_steps-1)
+        move!(robot, direction)
+        putmarker!(robot)
+    end
+end
+
+"""
+NxN_marker!(robot, N::Int)::Nothing
+-- функция строт квадрат размером NxN из маркеров
+предполагается что данный квадрат влезает в поле
+и что робот в конце останется в юго-западном углу этого квадрата
+"""
+function NxN_marker_right!(robot, N::Int)::Nothing
+    side = Ost
+    for n in 1:N
+        num_steps_mark_along!(robot, side, N)
+        side = inverse(side)
+        if n != N
+            move!(robot, Nord)
+        end
+    end
+    along!(robot, Sud, N-1)
+    if inverse(side) == West
+        along!(robot, Ost, N-1)
+    end
+end
+
+function NxN_marker_left!(robot, N::Int)::Nothing
+    side = West
+    for n in 1:N
+        num_steps_mark_along!(robot, side, N)
+        side = inverse(side)
+        if n != N
+            move!(robot, Nord)
+        end
+    end
+    along!(robot, Sud, N-1)
+    if inverse(side) == Ost
+        along!(robot, West, N-1)
+    end
+end
+###
