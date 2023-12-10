@@ -12,15 +12,51 @@ along!(robot, direct)::Nothing
 along!(robot, direction)::Nothing = while try_move!(robot, direction) end
 
 """
+along!(stop_condition::Function, robot, side)
+-- перемещает робота пока не выполнено условие остановки stop_condition()
+-- stop_condition - условие остановки - функция без аргументов, возращающая логическое значение
+Пример вызова:
+along!(() -> isborder(r, Nord), r, Nord)
+или
+along!(r, Ost) do
+    robot -> isborder(r, Ost)
+end
+"""
+function along!(stop_condition::Function, robot, side)
+    while !stop_condition()
+        try_move!(robot, side) 
+    end
+end
+
+"""
 along!(robot, direct, num_steps)::Nothing
 -- перемещает робота в заданном направлении на заданное 
 число шагов (предполагается, что это возможно)
 """
-function along!(robot, direction, num_steps)::Nothing
+function along!(robot, direction::HorizonSide, num_steps::Int)::Nothing
     for _ in 1:num_steps
         move!(robot, direction)
     end
 end
+
+"""
+along!(stop_condition::Function, robot, side)
+-- возвращает число шагов, сделанных "до тех пор, пока выполняется условие condition"
+-- stop_condition - условие остановки - функция одного
+аргумента (типа робот), возращающая логическое значение
+Пример вызова:
+along!(robot -> isborder(robot, Nord), r, Nord)
+"""
+function along!(stop_condition::Function, robot, side)::Int
+    n = 0
+    while !stop_condition()
+        try_move!(robot, side)
+        n += 1
+    end
+    return n
+end
+
+
 
 """
 num_steps_along!(robot, direct)::Int
@@ -35,6 +71,21 @@ function num_steps_along!(robot, direction)::Int
     return num_steps
 end
 
+"""
+num_steps_along!(stop_condition::Function, robot, side, num_steps)
+-- делает не более чем num_steps шагов в заданном направлении, до выполнения условии остановки
+stop_condition(), и возращает число фактически сделанных шагов
+-- stop_condition - условие остановки - функция без аргументов, возращающая логическое значение
+
+"""
+function num_steps_along!(stop_condition::Function, robot, side, max_num_steps)::Int
+    num_steps = 0
+    while num_steps < max_num_steps && !stop_condition()
+        try_move!(robot, side)
+        num_steps += 1
+    end
+    return num_steps
+end
 """
 along_search!(robot, direction, num_steps)
 -- перемещает робота в заданном направлении на заданное 
@@ -58,6 +109,8 @@ try_move!(robot, direct)::Bool
 """
 try_move!(robot, direction) = ((isborder(robot, direction)) ||
                         (move!(robot, direction); return true); return false)
+
+# try_move!(robot, direction::Tuple{HorizonSide, Int}) = (isborder(robot, direction[1]) || (move!(robot, direction[1] && !isborder(robot, direction[2]); return true)) || (move!(robot, direction)); return false)
 
 """
 numsteps_along!(robot, direct, max_num_steps)::Int
@@ -96,6 +149,10 @@ function inverse(side::HorizonSide)::HorizonSide # mod - остаток от д�
     else
         return Ost
     end
+end
+
+function inverse(side::NTuple{2, HorizonSide})::NTuple{2, HorizonSide}
+    return (inverse(side[1]), inverse(side[2]))
 end
 
 """
@@ -276,3 +333,90 @@ function NxN_marker_left!(robot, N::Int)::Nothing
     end
 end
 ###
+
+# """
+# snake!(stop_condition::Function, robot, 
+# (move_side, next_row_side)::NTuple{2,HorizonSide} = 
+# (Nord, Ost))
+# -- выполняет движение змейкой до выполнения условия останова 
+# stop_condition(cerrent_side), или не пока пройдены все ряды 
+# в направлении next_row_side (current_side - текущее 
+# направление робота при перемещениях вдоль очередного ряда)
+# stop_condition - функция, возвращающая логическое значение, 
+# и определяющая условие останова при движении змейкой, c 
+# одним аргументом типа HorizonSide - имеется ввиду, что этот 
+# аргрумет всегда имеет значение текущего направления 
+# перемещения 
+# """
+# function snake!(stop_condition::Function, robot,
+#             (move_side, next_row_side)::NTuple{2,HorizonSide}=(Nord, Ost))
+#     #Робот - в (inverse(next_row_side),inverse(move_side))-углу поля
+#     along!(stop_condition(move_side), robot, move_side)
+#     while !stop_condition(move_side) && try_move!(robot, next_row_side)
+#         move_side = inverse(move_side)
+#         along!(stop_condition(move_side), robot, move_side)
+#     end
+# end
+
+# """
+# snake!(robot,
+# (move_side, next_row_side)::NTuple{2,HorizonSide}=
+# (Nord, Ost))
+# -- перемещает робота "змейкой" пока не будут пройдены все 
+# ряды (в направлении next_row_side)
+# """
+# function snake!(robot, (move_side, next_row_side)::NTuple{2,HorizonSide}=(Ost, Nord)) 
+#     snake!(side -> false, robot, (next_row_side, move_side))
+#     #УТВ: Робот остановился в начале последнего ряда (последнй ряд остался не пройденным)
+#     if isborder(move_side) 
+#         along!(robot, inverse(move_side))
+#     else
+#         along!(robot, move_side)
+#     end
+# end
+
+"""
+shuttle!(stop_condition::Function, robot, side) 
+-- выполняет движение челноком до выполнения условия останова 
+stop_condition()
+stop_condition - функция, возвращающая логическое значение, 
+и определяющая условие останова при движении змейкой, c 
+одним аргументом типа HorizonSide - имеется ввиду, что этот 
+аргрумет всегда имеет значение текущего направления 
+перемещения
+P.S.
+Я специально сделал так чтобы shuttle! возращала переменную n типа (Int, HorizonSide),
+для увелечения функциональности функции(точнее для обхода полубесконечных перегородок в 18 задании)
+"""
+function shuttle!(stop_condition::Function, robot, side)::Tuple{Int, HorizonSide}
+    ortogonal_side = left(side)
+    n = 1
+    while !stop_condition()
+        along!(robot, ortogonal_side, n)
+        ortogonal_side = inverse(ortogonal_side)
+        n += 1
+    end
+    return (n, ortogonal_side)
+end
+
+function shuttle!(stop_condition::Function, robot, side)
+    ortogonal_side = left(side)
+    n = 1
+    while !stop_condition()
+        along!(robot, ortogonal_side, n)
+        ortogonal_side = inverse(ortogonal_side)
+        n += 1
+    end
+end
+"""
+?????
+"""
+function spiral!(stop_condition::Function, robot)
+    n = 2
+    side = Nord
+    while !stop_condition()
+        num_steps_along!(stop_condition, robot, side, div(n, 2))
+        n += 1
+        side = right(side)
+    end
+end
